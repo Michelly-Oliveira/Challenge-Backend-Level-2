@@ -1,10 +1,10 @@
-import { getCustomRepository, getRepository } from 'typeorm';
+import { getCustomRepository } from 'typeorm';
 
 import AppError from '../errors/AppError';
 
 import Transaction from '../models/Transaction';
-import Category from '../models/Category';
 import TransactionsRepository from '../repositories/TransactionsRepository';
+import CategoriesRepository from '../repositories/CategoriesRepository';
 
 interface Request {
   title: string;
@@ -21,7 +21,7 @@ class CreateTransactionService {
     category,
   }: Request): Promise<Transaction> {
     // Have access to the categories table
-    const categoriesRepository = getRepository(Category);
+    const categoriesRepository = getCustomRepository(CategoriesRepository);
     const transactionsRepository = getCustomRepository(TransactionsRepository);
 
     // Check if type is outcome, if it is only create new transaction if the total of the balance is bigger than the value of the transaction to be created
@@ -33,23 +33,9 @@ class CreateTransactionService {
       }
     }
 
-    // Find category on database by name
-    const findCategory = await categoriesRepository.findOne({
-      where: { title: category },
-    });
-
-    let category_id = findCategory?.id;
-
-    // If that category doesn't exist, create it
-    if (!findCategory) {
-      const newCategory = categoriesRepository.create({
-        title: category,
-      });
-
-      await categoriesRepository.save(newCategory);
-
-      category_id = newCategory.id;
-    }
+    const category_id = await categoriesRepository.checkExistentCategory(
+      category,
+    );
 
     const transaction = transactionsRepository.create({
       title,
@@ -59,14 +45,6 @@ class CreateTransactionService {
     });
 
     await transactionsRepository.save(transaction);
-
-    // const formattedTransaction = {
-    //   id: transaction.id,
-    //   title: transaction.title,
-    //   value: transaction.value,
-    //   type: transaction.type,
-    //   category,
-    // };
 
     return transaction;
   }
